@@ -13,19 +13,20 @@ const data = {
   },
   async getNew(arg) {
     const argObject = JSON.parse(arg)
+    argObject.index = 1
     let url
     switch (argObject.kind) {
       case "postList":
-        url = config.backend + "/post/list?size=" + config.pageSize + "&index=" + argObject.index
+        url = `${config.backend}/post/list?size=${config.pageSize}&index=${argObject.index}`
         break
       case "postDetail":
-        url = config.backend + "/post/detail?uuid=" + argObject.uuid
+        url = `${config.backend}/post?uuid=${argObject.uuid}`
         break
       case "tagPostList":
-        url = config.backend + "/tag/list?size=" + config.pageSize + "&index=" + argObject.index
+        url = `${config.backend}/tag?size=${config.pageSize}&index=${argObject.index}&uuid=${argObject.uuid}`
         break
       case "categoryPostList":
-        url = config.backend + "/category/list?size=" + config.pageSize + "&index=" + argObject.index
+        url = `${config.backend}/category?size=${config.pageSize}&index=${argObject.index}&uuid=${argObject.uuid}`
         break
       default:
         console.error("url not founded")
@@ -45,8 +46,9 @@ const render = {
   async update() {
     const path = window.location.pathname
     const content = await this.handler(path)
-    console.log(content)
-    document.getElementById("app").appendChild(content)
+    const app = document.getElementById("app")
+    app.innerHTML = ""
+    app.appendChild(content)
   },
   async get(arg) {
     const cacheData = this.cache[arg]
@@ -59,22 +61,44 @@ const render = {
     }
   },
   async getNew(arg) {
-    const argObject = json.parse(arg)
+    const argObject = JSON.parse(arg)
     switch (argObject.kind) {
-      case "postList": return await this.postList(argObject.index)
+      case "postList":
+      case "tagPostList":
+      case "categoryPostList":
+        return await this.postList(arg)
+      case "postDetail":
+        return await this.postDetail(argObject.uuid)
     }
   },
   async handler(path) {
+    let mainDiv
     if (path == "/") {
-      return "index"
+      mainDiv = await this.get(JSON.stringify({ kind: "postList", index: 1 }))
     } else if (path.startsWith("/list/")) {
-      return await this.postList(Number(path.slice("/list/".length)))
+      mainDiv = await this.get(JSON.stringify({ kind: "postList", index: Number(path.slice("/post/".length)) }))
+    } else if (path.startsWith("/post/")) {
+      mainDiv = await this.get(JSON.stringify({
+        kind: "postDetail", uuid: path.slice("/post/".length)
+      }))
+    } else if (path.startsWith("/tag/")) {
+      const prefixLen = "/tag/".length
+      mainDiv = await this.get(JSON.stringify({ kind: "tagPostList", uuid: path.slice(prefixLen, prefixLen + 32), index: Number(path.slice(prefixLen + 32)) }))
+    } else if (path.startsWith("/category/")) {
+      const prefixLen = "/category/".length
+      mainDiv = await this.get(JSON.stringify({ kind: "categoryPostList", uuid: path.slice(prefixLen, prefixLen + 32), index: Number(path.slice(prefixLen + 32)) }))
     } else {
-      return 404
+      return createDiv(null, "404", null)
     }
+    return this.container(mainDiv)
   },
-  async postList(index) {
-    const arg = JSON.stringify({ kind: "postList", index: index })
+  container(mainDiv) {
+    const containerDiv = createDiv("container", "", null)
+    containerDiv.innerHTML = ""
+    containerDiv.appendChild(mainDiv)
+    return containerDiv
+  },
+  async postList(arg) {
     const dataObject = await data.get(arg)
     const postListDiv = createDiv("list", "", null)
     dataObject.forEach(post => {
@@ -105,12 +129,21 @@ const render = {
     const categoryDiv = createDiv("category", categoryData.name, null)
     isLinkable(categoryDiv, "/category/" + categoryData.uuid)
     return categoryDiv
+  },
+  async postDetail(uuid) {
+    const post = await data.get(JSON.stringify({ kind: "postDetail", uuid: uuid }))
+    const postDetailDiv = createDiv("detail", "", null)
+    createDiv("title", post.title, postDetailDiv)
+    postDetailDiv.appendChild(this.subTitle(post.date, post.tags, post.category))
+    createDiv("brief", post.brief, postDetailDiv)
+    createDiv("content", post.content, postDetailDiv)
+    return postDetailDiv
   }
 }
 function createDiv(className, text, parent) {
   const div = document.createElement("div")
   div.innerText = text
-  div.classList.add(className)
+  className && div.classList.add(className)
   parent && parent.appendChild(div)
   return div
 }
@@ -122,3 +155,5 @@ function isLinkable(div, path) {
   })
 }
 render.update()
+window.addEventListener('load', async () => { await render.update() })
+window.addEventListener('popstate', async () => { await render.update() })

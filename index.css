@@ -1,0 +1,43 @@
+* {
+  margin: 0px;
+  padding: 0px;
+}
+
+#app {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.container {
+  min-width: 80vw;
+}
+
+.subTitle,
+.tags {
+  display: flex;
+  flex-direction: row;
+}
+
+.subTitle {
+  gap: 1rem
+}
+
+.tags {
+  gap: 0.5rem;
+}
+
+.container {
+  margin-top: 2rem
+}
+
+.item {
+  margin-bottom: 2rem;
+}
+
+.item>*,
+.detail>* {
+  margin-bottom: 0.5rem;
+}
